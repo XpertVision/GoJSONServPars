@@ -7,10 +7,13 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"sync"
 )
 
 //GLOBAL JSON VAR
 var jsn MyJSON
+
+var mut sync.RWMutex
 
 //
 
@@ -65,9 +68,11 @@ func parseJSON(filename string) error {
 		return errors.New("read file error")
 	}
 
-	fmt.Println(jsByte)
+	mut.Lock()
 
 	errUnm := json.Unmarshal(jsByte, &jsn)
+
+	mut.Unlock()
 
 	if errUnm != nil {
 		fmt.Println("Unmarshal file error:", errUnm)
@@ -78,7 +83,6 @@ func parseJSON(filename string) error {
 }
 
 func upload(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("UPLOAD")
 	parseErr := r.ParseForm()
 
 	if parseErr != nil {
@@ -99,11 +103,12 @@ func upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	mut.Lock()
 	ioutil.WriteFile("D:/json/"+fileType.Filename, fileBytes, os.FileMode(os.O_WRONLY))
+	mut.Unlock()
 }
 
 func get(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("Get")
 	parseErr := r.ParseForm()
 
 	if parseErr != nil {
@@ -113,6 +118,8 @@ func get(w http.ResponseWriter, r *http.Request) {
 	getType := r.FormValue("Get")
 
 	parseJSON("D:/json/test.json")
+
+	mut.RLock()
 
 	switch getType {
 	case "States":
@@ -127,6 +134,8 @@ func get(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("Invalid value or empty")
 		return
 	}
+
+	mut.RUnlock()
 }
 
 func main() {
