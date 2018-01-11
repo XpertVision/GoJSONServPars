@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,7 +13,7 @@ import (
 
 //GLOBAL JSON VAR
 var jsn MyJSON
-
+var fileNameMain string
 var mut sync.RWMutex
 
 //
@@ -61,8 +62,11 @@ type MyJSON struct {
 //
 //
 
-func parseJSON(filename string) error {
-	jsByte, err := ioutil.ReadFile(filename)
+func parseJSON(fileName string) error {
+
+	mut.RLock()
+	jsByte, err := ioutil.ReadFile(fileName)
+	mut.RUnlock()
 
 	if err != nil {
 		return errors.New("read file error")
@@ -103,8 +107,21 @@ func upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	mut.RLock()
+	oldFileBytes, errRF := ioutil.ReadFile("D:/json/" + fileNameMain)
+	mut.RUnlock()
+
+	if errRF == nil {
+		compareResult := bytes.Compare(oldFileBytes, fileBytes)
+
+		if compareResult == 0 {
+			return
+		}
+	}
+
 	mut.Lock()
-	ioutil.WriteFile("D:/json/"+fileType.Filename, fileBytes, os.FileMode(os.O_WRONLY))
+	fileNameMain = fileType.Filename
+	ioutil.WriteFile("D:/json/"+fileNameMain, fileBytes, os.FileMode(os.O_WRONLY))
 	mut.Unlock()
 }
 
@@ -117,7 +134,7 @@ func get(w http.ResponseWriter, r *http.Request) {
 
 	getType := r.FormValue("Get")
 
-	parseJSON("D:/json/test.json")
+	parseJSON("D:/json/" + fileNameMain)
 
 	mut.RLock()
 
