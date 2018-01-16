@@ -139,9 +139,9 @@ func get(w http.ResponseWriter, r *http.Request) {
 
 	getType := r.FormValue("Get")
 
-	if len(fileNameMain) == 0 {
+	/*if len(fileNameMain) == 0 {
 		fileNameMain = "example/test.json"
-	}
+	}*/
 
 	parseJSON("D:/json/" + fileNameMain)
 
