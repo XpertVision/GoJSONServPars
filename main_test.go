@@ -12,6 +12,60 @@ import (
 	"testing"
 )
 
+func TestUpload(t *testing.T) {
+	var err error
+
+	file, err := os.Open("D:/json/example/test.json")
+
+	if err != nil {
+		t.Fatal("file didn't open")
+	}
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	part, err := writer.CreateFormFile("file", "test.json" /*file.Name()*/)
+
+	if err != nil {
+		t.Fatal("CreateFromFile Error")
+	}
+
+	_, err = io.Copy(part, file)
+	if err != nil {
+		t.Fatal("copy")
+	}
+
+	err = writer.Close()
+	if err != nil {
+		t.Fatal("writer.Close() error")
+	}
+
+	req, err := http.NewRequest(http.MethodPost, "http://127.0.0.1:8080/upload", body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	w := httptest.NewRecorder()
+
+	upload(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatal("response error:", w.Code)
+	}
+
+	fileExample, err := ioutil.ReadFile("D:/json/example/test.json")
+	if err != nil {
+		t.Fatal("Read example file to buffer error")
+	}
+
+	fileUpload, err := ioutil.ReadFile("D:/json/test.json")
+	if err != nil {
+		t.Fatal("Read uploaded file to buffer error")
+	}
+
+	if !bytes.Equal(fileExample, fileUpload) {
+		t.Fatal("File uploaded incorrect")
+	}
+}
+
 func TestGet(t *testing.T) {
 	var example string
 	var correctRes string
@@ -54,59 +108,5 @@ func TestGet(t *testing.T) {
 		if strings.Compare(w.Body.String(), correctRes) != 0 {
 			t.Fatal("FATAL:", w.Body.String(), "iteration:  ", i, correctRes)
 		}
-	}
-}
-
-func TestUpload(t *testing.T) {
-	var err error
-
-	file, err := os.Open("D:/json/example/test.json")
-
-	if err != nil {
-		t.Fatal("file didn't open")
-	}
-
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-
-	part, err := writer.CreateFormFile("file", file.Name())
-
-	if err != nil {
-		t.Fatal("CreateFromFile Error")
-	}
-
-	_, err = io.Copy(part, file)
-	if err != nil {
-		t.Fatal("copy")
-	}
-
-	err = writer.Close()
-	if err != nil {
-		t.Fatal("writer.Close() error")
-	}
-
-	req, err := http.NewRequest(http.MethodPost, "http://127.0.0.1:8080/upload", body)
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-
-	w := httptest.NewRecorder()
-
-	upload(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Fatal("response error:", w.Code)
-	}
-
-	fileExample, err := ioutil.ReadFile("D:/json/example/test.json")
-	if err != nil {
-		t.Fatal("Read example file to buffer error")
-	}
-
-	fileUpload, err := ioutil.ReadFile("D:/json/test.json")
-	if err != nil {
-		t.Fatal("Read uploaded file to buffer error")
-	}
-
-	if !bytes.Equal(fileExample, fileUpload) {
-		t.Fatal("File uploaded incorrect")
 	}
 }
