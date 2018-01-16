@@ -41,13 +41,13 @@ type Actions struct {
 	Header []struct {
 		Label string `json:"label"`
 		Mtype string `json:"type"`
-		Link  string `json:"link,omitempty"`
+		Link  string `json:"link"` //,omitempty
 	} `json:"header"`
 
 	Footer []struct {
 		Label string `json:"label"`
 		Mtype string `json:"type"`
-		Link  string `json:"link,omitempty"`
+		Link  string `json:"link"`
 	} `json:"footer"`
 }
 
@@ -63,6 +63,7 @@ type MyJSON struct {
 //
 
 func parseJSON(fileName string) error {
+	var err error
 
 	mut.RLock()
 	jsByte, err := ioutil.ReadFile(fileName)
@@ -74,12 +75,12 @@ func parseJSON(fileName string) error {
 
 	mut.Lock()
 
-	errUnm := json.Unmarshal(jsByte, &jsn)
+	err = json.Unmarshal(jsByte, &jsn)
 
 	mut.Unlock()
 
-	if errUnm != nil {
-		fmt.Println("Unmarshal file error:", errUnm)
+	if err != nil {
+		fmt.Println("Unmarshal file error:", err)
 		return errors.New("Unmarshal file error")
 	}
 
@@ -87,31 +88,33 @@ func parseJSON(fileName string) error {
 }
 
 func upload(w http.ResponseWriter, r *http.Request) {
-	parseErr := r.ParseForm()
+	var err error
 
-	if parseErr != nil {
-		fmt.Println("parse err:", parseErr)
+	err = r.ParseForm()
+
+	if err != nil {
+		fmt.Println("parse err:", err)
 	}
 
-	file, fileType, er := r.FormFile("file")
+	file, fileType, err := r.FormFile("file")
 
-	if er != nil {
-		fmt.Println("ERROR FILE UPLOAD:", er)
+	if err != nil {
+		fmt.Println("ERROR FILE UPLOAD:", err)
 		return
 	}
 
 	fileBytes, err := ioutil.ReadAll(file)
 
-	if er != nil {
+	if err != nil {
 		fmt.Println("ERROR FILE READ:", err)
 		return
 	}
 
 	mut.RLock()
-	oldFileBytes, errRF := ioutil.ReadFile("D:/json/" + fileNameMain)
+	oldFileBytes, err := ioutil.ReadFile("D:/json/" + fileNameMain)
 	mut.RUnlock()
 
-	if errRF == nil {
+	if err == nil {
 		compareResult := bytes.Compare(oldFileBytes, fileBytes)
 
 		if compareResult == 0 {
@@ -126,10 +129,12 @@ func upload(w http.ResponseWriter, r *http.Request) {
 }
 
 func get(w http.ResponseWriter, r *http.Request) {
-	parseErr := r.ParseForm()
+	var err error
 
-	if parseErr != nil {
-		fmt.Println("parse err:", parseErr)
+	err = r.ParseForm()
+
+	if err != nil {
+		fmt.Println("parse err:", err)
 	}
 
 	getType := r.FormValue("Get")
@@ -152,14 +157,16 @@ func get(w http.ResponseWriter, r *http.Request) {
 	case "Actions":
 		json.NewEncoder(w).Encode(jsn.ActionsRow)
 	default:
-		fmt.Println("Invalid value or empty")
-		return
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("BAD REQUEST:" + getType))
 	}
 
 	mut.RUnlock()
 }
 
 func main() {
+	var err error
+
 	server := http.Server{
 		Addr: "127.0.0.1:8080",
 	}
@@ -167,7 +174,7 @@ func main() {
 	http.HandleFunc("/upload", upload)
 	http.HandleFunc("/get", get)
 
-	err := server.ListenAndServe()
+	err = server.ListenAndServe()
 
 	if err != nil {
 		fmt.Println("error:", err)

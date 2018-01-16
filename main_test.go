@@ -1,52 +1,22 @@
 package main
 
 import (
-	/*"bytes"
-	"encoding/binary"
-	"io"*/
+	"bytes"
+	"io"
+	"io/ioutil"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 )
 
-/*func Testupload(t *testing.T) {
-
-	req, err := http.NewRequest("POST", "/upload", nil)
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	rr := httptest.NewRecorder()
-
-	handler := http.HandlerFunc(upload)
-
-	handler.ServeHTTP(rr, req)
-
-	if status := rr.Code; status != http.StatusInternalServerError {
-		t.Errorf("handler returned wrong status code: got %v want %v", rr.Code, http.StatusOK)
-	}
-
-	expected := []byte(`{"status": 500, "error": "Bad connection"}`)
-	if !bytes.Equal(rr.Body.Bytes(), expected) {
-		t.Errorf("handler returned unexpected body: got %v want %v",
-			rr.Body.Bytes(), expected)
-	}
-}*/
-
 func TestGet(t *testing.T) {
-
-	/*var rid io.Reader
-
-	var bb bytes.Buffer
-	binary.Write(&bb, binary.BigEndian, "Layout")
-	rid.Read(bb.Bytes())*/
-
 	var example string
 	var correctRes string
 
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 4; i++ {
 
 		switch i {
 		case 0:
@@ -66,7 +36,8 @@ func TestGet(t *testing.T) {
 			correctRes = `{"header":[{"label":"Create new item","type":"Create","link":""}],"footer":[{"label":"Edit item","type":"edit","link":"http://localhost:8080/uwf-service/uwf/v1/items/{_id}/inline-edit"},{"label":"Move forward","type":"next","link":""},{"label":"Move backward","type":"previous","link":""}]}
 `
 		default:
-			t.Fatal("for failed")
+			example = "incorrect request"
+			correctRes = "BAD REQUEST:incorrect request"
 		}
 
 		w := httptest.NewRecorder()
@@ -81,7 +52,61 @@ func TestGet(t *testing.T) {
 		}
 
 		if strings.Compare(w.Body.String(), correctRes) != 0 {
-			t.Fatal("FATAL:", w.Body.String(), "iteration:   ", i)
+			t.Fatal("FATAL:", w.Body.String(), "iteration:  ", i, correctRes)
 		}
+	}
+}
+
+func TestUpload(t *testing.T) {
+	var err error
+
+	file, err := os.Open("D:/json/example/test.json")
+
+	if err != nil {
+		t.Fatal("file didn't open")
+	}
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	part, err := writer.CreateFormFile("file", file.Name())
+
+	if err != nil {
+		t.Fatal("CreateFromFile Error")
+	}
+
+	_, err = io.Copy(part, file)
+	if err != nil {
+		t.Fatal("copy")
+	}
+
+	err = writer.Close()
+	if err != nil {
+		t.Fatal("writer.Close() error")
+	}
+
+	req, err := http.NewRequest(http.MethodPost, "http://127.0.0.1:8080/upload", body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	w := httptest.NewRecorder()
+
+	upload(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatal("response error:", w.Code)
+	}
+
+	fileExample, err := ioutil.ReadFile("D:/json/example/test.json")
+	if err != nil {
+		t.Fatal("Read example file to buffer error")
+	}
+
+	fileUpload, err := ioutil.ReadFile("D:/json/test.json")
+	if err != nil {
+		t.Fatal("Read uploaded file to buffer error")
+	}
+
+	if !bytes.Equal(fileExample, fileUpload) {
+		t.Fatal("File uploaded incorrect")
 	}
 }
