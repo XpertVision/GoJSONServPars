@@ -11,10 +11,15 @@ import (
 	"sync"
 )
 
-//GLOBAL JSON VAR
-var jsn MyJSON
-var fileNameMain string
-var mut sync.RWMutex
+//GLOBAL STRUCT
+
+type API struct {
+	jsn          MyJSON
+	fileNameMain string
+	mut          sync.RWMutex
+	file         []byte
+	isParsed     bool
+}
 
 //
 
@@ -62,32 +67,34 @@ type MyJSON struct {
 //
 //
 
-func parseJSON(fileName string) error {
+func parseJSON(fileName string, a *API) error {
 	var err error
 
-	mut.RLock()
+	a.mut.RLock()
 	jsByte, err := ioutil.ReadFile(fileName)
-	mut.RUnlock()
+	a.mut.RUnlock()
 
 	if err != nil {
 		return errors.New("read file error")
 	}
 
-	mut.Lock()
-
-	err = json.Unmarshal(jsByte, &jsn)
-
-	mut.Unlock()
+	a.mut.Lock()
+	err = json.Unmarshal(jsByte, &a.jsn)
+	a.mut.Unlock()
 
 	if err != nil {
 		fmt.Println("Unmarshal file error:", err)
 		return errors.New("Unmarshal file error")
 	}
 
+	a.mut.Lock()
+	a.isParsed = true
+	a.mut.Unlock()
+
 	return nil
 }
 
-func upload(w http.ResponseWriter, r *http.Request) {
+func (a *API) upload(w http.ResponseWriter, r *http.Request) {
 	var err error
 
 	err = r.ParseForm()
@@ -110,25 +117,26 @@ func upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mut.RLock()
-	oldFileBytes, err := ioutil.ReadFile("D:/json/" + fileNameMain)
-	mut.RUnlock()
+	/*a.mut.RLock()
+	oldFileBytes, err := ioutil.ReadFile("D:/json/" + a.fileNameMain)
+	a.mut.RUnlock()*/
 
 	if err == nil {
-		compareResult := bytes.Compare(oldFileBytes, fileBytes)
+		compareResult := bytes.Compare(a.file /*oldFileBytes*/, fileBytes)
 
 		if compareResult == 0 {
 			return
 		}
 	}
 
-	mut.Lock()
-	fileNameMain = fileType.Filename
-	ioutil.WriteFile("D:/json/"+fileNameMain, fileBytes, os.FileMode(os.O_WRONLY))
-	mut.Unlock()
+	a.mut.Lock()
+	a.fileNameMain = fileType.Filename
+	ioutil.WriteFile("D:/json/"+a.fileNameMain, fileBytes, os.FileMode(os.O_WRONLY))
+	a.file = fileBytes
+	a.mut.Unlock()
 }
 
-func get(w http.ResponseWriter, r *http.Request) {
+func (a *API) get(w http.ResponseWriter, r *http.Request) {
 	var err error
 
 	err = r.ParseForm()
@@ -143,36 +151,40 @@ func get(w http.ResponseWriter, r *http.Request) {
 		fileNameMain = "example/test.json"
 	}*/
 
-	parseJSON("D:/json/" + fileNameMain)
+	if !a.isParsed {
+		parseJSON("D:/json/"+a.fileNameMain, a)
+	}
 
-	mut.RLock()
+	a.mut.RLock()
 
 	switch getType {
 	case "States":
-		json.NewEncoder(w).Encode(jsn.StatesRow)
+		json.NewEncoder(w).Encode(a.jsn.StatesRow)
 	case "Transitions":
-		json.NewEncoder(w).Encode(jsn.TransitionsRow)
+		json.NewEncoder(w).Encode(a.jsn.TransitionsRow)
 	case "Layout":
-		json.NewEncoder(w).Encode(jsn.LayoutRow)
+		json.NewEncoder(w).Encode(a.jsn.LayoutRow)
 	case "Actions":
-		json.NewEncoder(w).Encode(jsn.ActionsRow)
+		json.NewEncoder(w).Encode(a.jsn.ActionsRow)
 	default:
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("BAD REQUEST:" + getType))
 	}
 
-	mut.RUnlock()
+	a.mut.RUnlock()
 }
 
 func main() {
 	var err error
 
+	var mainAPI API
+
 	server := http.Server{
 		Addr: "127.0.0.1:8080",
 	}
 
-	http.HandleFunc("/upload", upload)
-	http.HandleFunc("/get", get)
+	http.HandleFunc("/upload", mainAPI.upload)
+	http.HandleFunc("/get", mainAPI.get)
 
 	err = server.ListenAndServe()
 

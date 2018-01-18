@@ -12,6 +12,8 @@ import (
 	"testing"
 )
 
+var testApi API
+
 func TestUpload(t *testing.T) {
 	var err error
 
@@ -45,7 +47,7 @@ func TestUpload(t *testing.T) {
 
 	w := httptest.NewRecorder()
 
-	upload(w, req)
+	testApi.upload(w, req)
 
 	if w.Code != http.StatusOK {
 		t.Fatal("response error:", w.Code)
@@ -100,7 +102,7 @@ func TestGet(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		get(w, r)
+		testApi.get(w, r)
 		if w.Code != http.StatusOK {
 			t.Fatal(http.StatusOK, w.Code)
 		}
