@@ -1,24 +1,20 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
+	"reflect"
 	"sync"
 )
 
 //GLOBAL STRUCT
 
 type API struct {
-	jsn          MyJSON
-	fileNameMain string
-	mut          sync.RWMutex
-	file         []byte
-	isParsed     bool
+	jsn MyJSON
+	mut sync.RWMutex
 }
 
 //
@@ -42,36 +38,33 @@ type Layout struct {
 	Rows  [][]string `json:"rows"`
 }
 
-type Actions struct {
-	Header []struct {
-		Label string `json:"label"`
-		Mtype string `json:"type"`
-		Link  string `json:"link"` //,omitempty
-	} `json:"header"`
+type Button struct {
+	Label string `json:"label"`
+	Mtype string `json:"type"`
+	Link  string `json:"link, omitempty"` //,omitempty
+}
 
-	Footer []struct {
-		Label string `json:"label"`
-		Mtype string `json:"type"`
-		Link  string `json:"link"`
-	} `json:"footer"`
+type Actions struct {
+	Header []Button `json:"header"`
+	Footer []Button `json:"footer"`
 }
 
 //STRUCT
 type MyJSON struct {
-	StatesRow      []States      `json:"states"`
-	TransitionsRow []Transitions `json:"transitions"`
-	LayoutRow      []Layout      `json:"layout"`
-	ActionsRow     Actions       `json:"actions"`
+	States      []States      `json:"states"`
+	Transitions []Transitions `json:"transitions"`
+	Layout      []Layout      `json:"layout"`
+	Actions     Actions       `json:"actions"`
 }
 
 //
 //
 
-func parseJSON(fileName string, a *API) error {
+/*func parseJSON(fileName string, a *API) error {
 	var err error
 
 	a.mut.RLock()
-	jsByte, err := ioutil.ReadFile(fileName)
+	file, err := ioutil.ReadFile(fileName)
 	a.mut.RUnlock()
 
 	if err != nil {
@@ -79,34 +72,37 @@ func parseJSON(fileName string, a *API) error {
 	}
 
 	a.mut.Lock()
-	err = json.Unmarshal(jsByte, &a.jsn)
-	a.mut.Unlock()
+	err = json.Unmarshal(file, &a.jsn)
 
 	if err != nil {
 		fmt.Println("Unmarshal file error:", err)
 		return errors.New("Unmarshal file error")
 	}
 
-	a.mut.Lock()
-	a.isParsed = true
 	a.mut.Unlock()
 
 	return nil
-}
+}*/
 
 func (a *API) upload(w http.ResponseWriter, r *http.Request) {
 	var err error
+
+	var tmpAPI API
 
 	err = r.ParseForm()
 
 	if err != nil {
 		fmt.Println("parse err:", err)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("BAD REQUEST: Parse form error"))
 	}
 
 	file, fileType, err := r.FormFile("file")
 
 	if err != nil {
 		fmt.Println("ERROR FILE UPLOAD:", err)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("BAD REQUEST: File upload error"))
 		return
 	}
 
@@ -114,25 +110,26 @@ func (a *API) upload(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		fmt.Println("ERROR FILE READ:", err)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("BAD REQUEST: File read error"))
 		return
 	}
 
-	/*a.mut.RLock()
-	oldFileBytes, err := ioutil.ReadFile("D:/json/" + a.fileNameMain)
-	a.mut.RUnlock()*/
-
-	if err == nil {
-		compareResult := bytes.Compare(a.file /*oldFileBytes*/, fileBytes)
-
-		if compareResult == 0 {
-			return
-		}
+	err = json.Unmarshal(fileBytes, &tmpAPI.jsn)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("Internal Server Error: File parcing error"))
+		return
 	}
 
 	a.mut.Lock()
-	a.fileNameMain = fileType.Filename
-	ioutil.WriteFile("D:/json/"+a.fileNameMain, fileBytes, os.FileMode(os.O_WRONLY))
-	a.file = fileBytes
+	if !reflect.DeepEqual(tmpAPI.jsn, a.jsn) {
+		a.jsn = tmpAPI.jsn
+		ioutil.WriteFile("D:/json/"+fileType.Filename, fileBytes, os.FileMode(os.O_WRONLY))
+	} else {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("You tried upload actual file. Reject."))
+	}
 	a.mut.Unlock()
 }
 
@@ -143,29 +140,23 @@ func (a *API) get(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		fmt.Println("parse err:", err)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("BAD REQUEST: Parse form error"))
 	}
 
 	getType := r.FormValue("Get")
-
-	/*if len(fileNameMain) == 0 {
-		fileNameMain = "example/test.json"
-	}*/
-
-	if !a.isParsed {
-		parseJSON("D:/json/"+a.fileNameMain, a)
-	}
 
 	a.mut.RLock()
 
 	switch getType {
 	case "States":
-		json.NewEncoder(w).Encode(a.jsn.StatesRow)
+		json.NewEncoder(w).Encode(a.jsn.States)
 	case "Transitions":
-		json.NewEncoder(w).Encode(a.jsn.TransitionsRow)
+		json.NewEncoder(w).Encode(a.jsn.Transitions)
 	case "Layout":
-		json.NewEncoder(w).Encode(a.jsn.LayoutRow)
+		json.NewEncoder(w).Encode(a.jsn.Layout)
 	case "Actions":
-		json.NewEncoder(w).Encode(a.jsn.ActionsRow)
+		json.NewEncoder(w).Encode(a.jsn.Actions)
 	default:
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("BAD REQUEST:" + getType))

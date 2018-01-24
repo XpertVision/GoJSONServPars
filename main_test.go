@@ -108,7 +108,7 @@ func TestGet(t *testing.T) {
 		}
 
 		if strings.Compare(w.Body.String(), correctRes) != 0 {
-			t.Fatal("FATAL:", w.Body.String(), "iteration:  ", i, correctRes)
+			t.Fatal("FATAL:", w.Body.String(), "iteration:   ", i, correctRes)
 		}
 	}
 }
