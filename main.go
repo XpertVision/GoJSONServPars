@@ -10,21 +10,19 @@ import (
 	"sync"
 )
 
-//GLOBAL STRUCT
-
+// API struct than contains main mutex for actual JSON and JSON file
 type API struct {
 	jsn MyJSON
 	mut sync.RWMutex
 }
 
-//
-
-//JSON SUBSTRUCT & STRUCT
+// States JSON SUBSTRUCT
 type States struct {
 	Id    string `json:"id"`
 	Label string `json:"label"`
 }
 
+// Transitions JSON SUBSTRUCT
 type Transitions struct {
 	Id        string `json:"id"`
 	Label     string `json:"label"`
@@ -33,23 +31,26 @@ type Transitions struct {
 	Direction string `json:"direction"`
 }
 
+// Layout JSON SUBSTRUCT
 type Layout struct {
 	Label string     `json:"label"`
 	Rows  [][]string `json:"rows"`
 }
 
+// Button JSON->Actions SUBSTRUCT
 type Button struct {
 	Label string `json:"label"`
 	Mtype string `json:"type"`
-	Link  string `json:"link, omitempty"` //,omitempty
+	Link  string `json:"link"` //,omitempty
 }
 
+// Actions JSON SUBSTRUCT
 type Actions struct {
 	Header []Button `json:"header"`
 	Footer []Button `json:"footer"`
 }
 
-//STRUCT
+// MyJSON JSON STRUCT
 type MyJSON struct {
 	States      []States      `json:"states"`
 	Transitions []Transitions `json:"transitions"`
@@ -57,37 +58,11 @@ type MyJSON struct {
 	Actions     Actions       `json:"actions"`
 }
 
-//
-//
-
-/*func parseJSON(fileName string, a *API) error {
-	var err error
-
-	a.mut.RLock()
-	file, err := ioutil.ReadFile(fileName)
-	a.mut.RUnlock()
-
-	if err != nil {
-		return errors.New("read file error")
-	}
-
-	a.mut.Lock()
-	err = json.Unmarshal(file, &a.jsn)
-
-	if err != nil {
-		fmt.Println("Unmarshal file error:", err)
-		return errors.New("Unmarshal file error")
-	}
-
-	a.mut.Unlock()
-
-	return nil
-}*/
-
+// upload func for uploading JSON file to server
 func (a *API) upload(w http.ResponseWriter, r *http.Request) {
 	var err error
 
-	var tmpAPI API
+	var tmpJSON MyJSON
 
 	err = r.ParseForm()
 
@@ -115,7 +90,7 @@ func (a *API) upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = json.Unmarshal(fileBytes, &tmpAPI.jsn)
+	err = json.Unmarshal(fileBytes, &tmpJSON)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("Internal Server Error: File parcing error"))
@@ -123,16 +98,17 @@ func (a *API) upload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	a.mut.Lock()
-	if !reflect.DeepEqual(tmpAPI.jsn, a.jsn) {
-		a.jsn = tmpAPI.jsn
-		ioutil.WriteFile("D:/json/"+fileType.Filename, fileBytes, os.FileMode(os.O_WRONLY))
-	} else {
+	defer a.mut.Unlock()
+	if reflect.DeepEqual(tmpJSON, a.jsn) {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("You tried upload actual file. Reject."))
 	}
-	a.mut.Unlock()
+
+	a.jsn = tmpJSON
+	ioutil.WriteFile("D:/json/"+fileType.Filename, fileBytes, os.FileMode(os.O_WRONLY))
 }
 
+// get func for returning part of JSON file from server
 func (a *API) get(w http.ResponseWriter, r *http.Request) {
 	var err error
 

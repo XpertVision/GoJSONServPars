@@ -72,6 +72,12 @@ func TestGet(t *testing.T) {
 	var example string
 	var correctRes string
 
+	/*var testData []struct{
+		params string
+		resp string
+		respCode int
+	}{{"States","asdas"}}*/
+
 	for i := 0; i < 4; i++ {
 
 		switch i {
