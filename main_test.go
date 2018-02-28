@@ -12,7 +12,7 @@ import (
 	"testing"
 )
 
-var testApi API
+var testAPI API
 
 func TestUpload(t *testing.T) {
 	var err error
@@ -26,7 +26,7 @@ func TestUpload(t *testing.T) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
-	part, err := writer.CreateFormFile("file", "test.json" /*file.Name()*/)
+	part, err := writer.CreateFormFile("file", "test.json")
 
 	if err != nil {
 		t.Fatal("CreateFromFile Error")
@@ -43,11 +43,14 @@ func TestUpload(t *testing.T) {
 	}
 
 	req, err := http.NewRequest(http.MethodPost, "http://127.0.0.1:8080/upload", body)
+	if err != nil {
+		t.Fatal("Make new request error: ", err)
+	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
 	w := httptest.NewRecorder()
 
-	testApi.upload(w, req)
+	testAPI.upload(w, req)
 
 	if w.Code != http.StatusOK {
 		t.Fatal("response error:", w.Code)
@@ -71,12 +74,6 @@ func TestUpload(t *testing.T) {
 func TestGet(t *testing.T) {
 	var example string
 	var correctRes string
-
-	/*var testData []struct{
-		params string
-		resp string
-		respCode int
-	}{{"States","asdas"}}*/
 
 	for i := 0; i < 4; i++ {
 
@@ -108,7 +105,7 @@ func TestGet(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		testApi.get(w, r)
+		testAPI.get(w, r)
 		if w.Code != http.StatusOK {
 			t.Fatal(http.StatusOK, w.Code)
 		}
